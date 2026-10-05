@@ -2,7 +2,7 @@
 
 A full-stack DSA project. The app shows a random **postfix expression** (for example `3 4 + 2 *`). You solve it, then watch a **stack** evaluate it one token at a time.
 
-**Live demo:** _add your deployed link here_
+https://postfix-expression-stack-dsa-project.onrender.com
 
 ## How the stack evaluates postfix
 
