@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Postfix Puzzle – Stack</title>
+<style>
+:root{--bg:#eef3ef;--fg:#14231c;--mut:#5a6b62;--card:#fff;--bd:#cfd9d2;--ac:#c2410c;--on:#fff;--ok:#15803d;--err:#b42318;
+ box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1512;--fg:#e6efe9;--mut:#8fa397;--card:#17211c;--bd:#2a3a32;--ac:#fb923c;--on:#1f0f03;--ok:#4ade80;--err:#ff8a80}}
+:root[data-theme="dark"]{--bg:#0e1512;--fg:#e6efe9;--mut:#8fa397;--card:#17211c;--bd:#2a3a32;--ac:#fb923c;--on:#1f0f03;--ok:#4ade80;--err:#ff8a80}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 "Gill Sans","Trebuchet MS",system-ui,sans-serif}
+main{max-width:940px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:1.9rem;margin:0 0 4px;letter-spacing:-.01em}h2{font-size:1.05rem;margin:0 0 12px}
+.sub{margin:0 0 20px;color:var(--mut);max-width:64ch}
+.badge{display:inline-block;font-size:.8rem;padding:2px 10px;border:1px solid var(--bd);border-radius:99px;color:var(--mut);margin-left:8px;vertical-align:middle;font-weight:400}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px}
+.panel{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:16px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.between{justify-content:space-between}
+button,input,select{font:inherit;color:inherit}
+button{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:8px 14px;cursor:pointer}
+button:hover:not(:disabled){border-color:var(--ac)}button:disabled{opacity:.45;cursor:default}
+button.p{background:var(--ac);color:var(--on);border-color:var(--ac);font-weight:600}
+input,select{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;min-width:0}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.toks{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 16px}
+.tok{min-width:42px;text-align:center;padding:8px 10px;border:1.5px solid var(--bd);border-radius:8px;font-size:1.3rem;font-weight:700}
+.tok.done{opacity:.4}.tok.now{background:var(--ac);border-color:var(--ac);color:var(--on)}
+#msg{min-height:1.5em;margin:12px 0 0}#msg.good{color:var(--ok)}#msg.bad{color:var(--err)}
+.score{margin:4px 0 0;color:var(--mut);font-size:.9rem}
+.stack{display:flex;flex-direction:column;gap:6px;min-height:200px;justify-content:flex-end;border:2px solid var(--bd);border-top:0;border-radius:0 0 12px 12px;padding:10px;width:150px;margin:0 auto 12px}
+.stack em{color:var(--mut);text-align:center;align-self:center;margin-bottom:80px}
+.cell{position:relative;text-align:center;padding:10px;border:1.5px solid var(--bd);border-radius:8px;font-size:1.25rem;font-weight:700}
+.cell.top{background:var(--ac);border-color:var(--ac);color:var(--on)}
+.cell small{position:absolute;left:calc(100% + 10px);top:50%;transform:translateY(-50%);color:var(--mut);font-weight:600;font-size:.75rem}
+.act{min-height:3em;color:var(--mut);margin:0 0 12px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Postfix Puzzle <span class="badge" id="mode">connecting…</span></h1>
+  <p class="sub">In postfix, the operator comes after its numbers: <b>3 4 +</b> means 3 + 4. A stack evaluates it. Push each number; when an operator arrives, pop two numbers, calculate, and push the result.</p>
+
+  <div class="grid">
+    <section class="panel">
+      <div class="row between"><h2>Evaluate this expression</h2>
+        <select id="lvl" aria-label="Difficulty" onchange="nextPuzzle()">
+          <option value="1">Easy</option><option value="2" selected>Medium</option><option value="3">Hard</option>
+        </select></div>
+      <div class="toks" id="toks"></div>
+      <div class="row">
+        <input id="ans" type="number" step="any" placeholder="Your answer" aria-label="Your answer" onkeydown="if(event.key==='Enter')check()">
+        <button class="p" onclick="check()">Check answer</button>
+        <button onclick="hint()">Show steps</button>
+        <button onclick="nextPuzzle()">New puzzle</button>
+      </div>
+      <p id="msg" role="status"></p>
+      <p class="score" id="score"></p>
+    </section>
+
+    <section class="panel">
+      <h2>The stack</h2>
+      <div class="stack" id="stack" aria-live="polite"></div>
+      <p class="act" id="act"></p>
+      <div class="row"><button id="bk" onclick="go(-1)">Back</button><button class="p" id="fw" onclick="go(1)">Next step</button></div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>Try your own expression</h2>
+    <div class="row">
+      <input id="own" value="5 1 2 + 4 * + 3 -" aria-label="Your own postfix expression" style="flex:1;min-width:200px" onkeydown="if(event.key==='Enter')own()">
+      <button onclick="own()">Trace it</button>
+    </div>
+  </section>
+</main>
+
+<script src="postfix.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = t => String(t).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+let mode = 'demo', puz = null, trace = null, step = -1, sc = { solved: 0, tries: 0, streak: 0 };
+
+async function call(op, body = {}) {
+  if (mode === 'api') {
+    const r = await fetch('/api/' + op, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    return d;
+  }
+  return Postfix[op](body);   // demo mode: same code, running in the browser
+}
+const say = (t, cls = '') => { $('msg').textContent = t; $('msg').className = cls; };
+const show = r => { trace = r; step = -1; render(); };
+
+async function nextPuzzle() {
+  try { puz = await call('puzzle', { level: $('lvl').value }); trace = null; step = -1; $('ans').value = ''; say(''); render(); }
+  catch (e) { say(e.message, 'bad'); }
+}
+async function hint() {
+  try { show(await call('evaluate', { expr: puz.expr })); say('Press Next step to watch the stack work it out.'); }
+  catch (e) { say(e.message, 'bad'); }
+}
+async function check() {
+  try {
+    const r = await call('check', { expr: puz.expr, answer: $('ans').value });
+    sc.tries++;
+    if (r.correct) { sc.solved++; sc.streak++; say('Correct! The answer is ' + r.result + '.', 'good'); }
+    else { sc.streak = 0; say('Not quite. The answer is ' + r.result + '. Step through to see why.', 'bad'); }
+    show(r);
+  } catch (e) { say(e.message, 'bad'); }
+}
+async function own() {
+  try { const r = await call('evaluate', { expr: $('own').value }); puz = { expr: r.expr }; $('ans').value = ''; show(r); say('Result: ' + r.result, 'good'); }
+  catch (e) { say(e.message, 'bad'); }
+}
+function go(d) { if (trace) { step = Math.max(-1, Math.min(trace.steps.length - 1, step + d)); render(); } }
+
+function render() {
+  $('toks').innerHTML = puz.expr.split(' ').map((t, i) =>
+    `<span class="tok${trace && i < step ? ' done' : ''}${trace && i === step ? ' now' : ''}">${esc(t)}</span>`).join('');
+  const st = trace && step >= 0 ? trace.steps[step].stack : [];
+  $('stack').innerHTML = st.length
+    ? st.slice().reverse().map((v, i) => `<div class="cell${i === 0 ? ' top' : ''}">${i === 0 ? '<small>TOP</small>' : ''}${esc(v)}</div>`).join('')
+    : '<em>empty</em>';
+  $('act').textContent = !trace ? 'Check your answer or press Show steps to watch the stack work.'
+    : step < 0 ? 'The stack starts empty. Press Next step to read the first token.'
+    : 'Token ' + trace.steps[step].token + ': ' + trace.steps[step].action;
+  $('bk').disabled = !trace || step < 0;
+  $('fw').disabled = !trace || step >= trace.steps.length - 1;
+  $('score').textContent = `Solved ${sc.solved} of ${sc.tries} · streak ${sc.streak}`;
+}
+
+(async () => {
+  try {
+    const r = await fetch('/api/puzzle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"level":2}' });
+    if (!r.ok || !(r.headers.get('content-type') || '').includes('json')) throw 0;
+    mode = 'api'; puz = await r.json(); $('mode').textContent = 'Backend connected';
+  } catch { puz = Postfix.puzzle({ level: 2 }); $('mode').textContent = 'Demo mode (in browser)'; }
+  render();
+})();
+</script>
+</body>
+</html>
